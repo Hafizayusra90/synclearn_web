@@ -1385,6 +1385,14 @@ function ActiveRoomPage({
   const speechRecognitionRef = useRef(null);
   const isTranscribingRef = useRef(false);
 
+  // Live captions (separate from the lecture-notes transcription control).
+  const [isLiveCaptionsOn, setIsLiveCaptionsOn] = useState(false);
+  const [liveCaptionText, setLiveCaptionText] = useState('');
+  const liveCaptionRecognitionRef = useRef(null);
+  const liveCaptionOnRef = useRef(false);
+  const liveCaptionClearTimerRef = useRef(null);
+  const liveCaptionRestartTimerRef = useRef(null);
+
   // Chat, Doubts & File Sharing
   const [messages, setMessages]           = useState([]);
   const [newMessage, setNewMessage]       = useState('');
@@ -1805,11 +1813,23 @@ function ActiveRoomPage({
     });
 
     // Receive live lecture notes
-    socket.on('receive-transcription', data => {
-      if (data?.entry) {
-        setTranscription(prev => [...prev, data.entry]);
-      }
-    });
+socket.on('receive-transcription', (data) => {
+  if (!data?.entry?.text) return;
+
+  // Automatically show captions when a student receives them
+  setIsLiveCaptionsOn(true);
+  setLiveCaptionText(data.entry.text);
+
+  setTranscription(prev => [...prev, data.entry]);
+
+  if (liveCaptionClearTimerRef.current) {
+    clearTimeout(liveCaptionClearTimerRef.current);
+  }
+
+  liveCaptionClearTimerRef.current = setTimeout(() => {
+    setLiveCaptionText('');
+  }, 6500);
+});
 
 
 
@@ -2753,6 +2773,126 @@ function ActiveRoomPage({
     }
   };
 
+  // Toggle browser-based live captions. Recreate recognition after each browser
+  // speech-service stop; Chrome may end a recognition session during long classes.
+  const handleToggleLiveCaptions = () => {
+    if (isLiveCaptionsOn) {
+      liveCaptionOnRef.current = false;
+      setIsLiveCaptionsOn(false);
+      if (liveCaptionRestartTimerRef.current) {
+        clearTimeout(liveCaptionRestartTimerRef.current);
+        liveCaptionRestartTimerRef.current = null;
+      }
+      if (liveCaptionRecognitionRef.current) {
+        const oldRecognition = liveCaptionRecognitionRef.current;
+        liveCaptionRecognitionRef.current = null;
+        try { oldRecognition.stop(); } catch (e) {}
+      }
+      setLiveCaptionText('');
+      if (liveCaptionClearTimerRef.current) {
+        clearTimeout(liveCaptionClearTimerRef.current);
+        liveCaptionClearTimerRef.current = null;
+      }
+      showToast('Live captions turned off.', 'info');
+      return;
+    }
+
+    // Students only need to enable the display; the instructor sends captions.
+    setIsLiveCaptionsOn(true);
+    if (!isInstructor) {
+      showToast('Captions are on. Instructor speech will appear here when available.', 'success');
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setIsLiveCaptionsOn(false);
+      showToast('Live captions are not supported in this browser. Please use the latest Chrome or Edge.', 'error');
+      return;
+    }
+
+    liveCaptionOnRef.current = true;
+
+    const startRecognitionSession = () => {
+      if (!liveCaptionOnRef.current) return;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        let interimText = '';
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const result = event.results[i];
+          const phrase = result?.[0]?.transcript?.trim();
+          if (!phrase) continue;
+          if (result.isFinal) {
+            const entry = {
+              id: 'caption-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+              speaker: user?.name || 'Instructor',
+              text: phrase,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            socket.emit('send-transcription', { roomId: cleanRoomId(roomId), entry });
+            setLiveCaptionText(phrase);
+            if (liveCaptionClearTimerRef.current) clearTimeout(liveCaptionClearTimerRef.current);
+            liveCaptionClearTimerRef.current = setTimeout(() => setLiveCaptionText(''), 6500);
+          } else {
+            interimText += (interimText ? ' ' : '') + phrase;
+          }
+        }
+        if (interimText) setLiveCaptionText(interimText);
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('Live caption recognition error:', event?.error || event);
+        if (event?.error === 'not-allowed' || event?.error === 'service-not-allowed') {
+          liveCaptionOnRef.current = false;
+          setIsLiveCaptionsOn(false);
+          showToast('Microphone/speech recognition permission was denied.', 'error');
+        }
+        // For transient errors such as no-speech/network, onend schedules a restart.
+      };
+
+      recognition.onend = () => {
+        if (liveCaptionRecognitionRef.current === recognition) {
+          liveCaptionRecognitionRef.current = null;
+        }
+        if (liveCaptionOnRef.current) {
+          if (liveCaptionRestartTimerRef.current) clearTimeout(liveCaptionRestartTimerRef.current);
+          liveCaptionRestartTimerRef.current = setTimeout(() => {
+            liveCaptionRestartTimerRef.current = null;
+            if (liveCaptionOnRef.current) startRecognitionSession();
+          }, 800);
+        }
+      };
+
+      liveCaptionRecognitionRef.current = recognition;
+      try {
+        recognition.start();
+      } catch (error) {
+        console.warn('Could not start live caption recognition; retrying:', error);
+        if (liveCaptionRecognitionRef.current === recognition) liveCaptionRecognitionRef.current = null;
+        if (liveCaptionOnRef.current) {
+          liveCaptionRestartTimerRef.current = setTimeout(() => {
+            liveCaptionRestartTimerRef.current = null;
+            if (liveCaptionOnRef.current) startRecognitionSession();
+          }, 1200);
+        }
+      }
+    };
+
+    try {
+      startRecognitionSession();
+      showToast('Live captions enabled. Speak into your microphone.', 'success');
+    } catch (error) {
+      liveCaptionOnRef.current = false;
+      setIsLiveCaptionsOn(false);
+      console.error('Unable to start live captions:', error);
+      showToast('Could not start live captions. Check microphone permission and try again.', 'error');
+    }
+  };
+
   const handleAddManualNote = (e) => {
     if (e) e.preventDefault();
     if (!manualNoteInput.trim()) return;
@@ -2775,6 +2915,12 @@ function ActiveRoomPage({
       if (speechRecognitionRef.current) {
         try { speechRecognitionRef.current.stop(); } catch(e) {}
       }
+      liveCaptionOnRef.current = false;
+      if (liveCaptionRestartTimerRef.current) clearTimeout(liveCaptionRestartTimerRef.current);
+      if (liveCaptionRecognitionRef.current) {
+        try { liveCaptionRecognitionRef.current.stop(); } catch(e) {}
+      }
+      if (liveCaptionClearTimerRef.current) clearTimeout(liveCaptionClearTimerRef.current);
     };
   }, []);
 
@@ -3311,6 +3457,38 @@ function ActiveRoomPage({
             <span className="toast-icon">{toast.type === 'error' ? '⚠️' : '✅'}</span>
             <span>{toast.message}</span>
           </div>
+        </div>
+      )}
+
+      {/* ── Live Captions Overlay ── */}
+      {liveCaptionText && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="synclearn-live-captions"
+          style={{
+            position: 'fixed',
+            left: '50%',
+            bottom: '108px',
+            transform: 'translateX(-50%)',
+            width: 'min(82vw, 900px)',
+            zIndex: 99990,
+            padding: '12px 20px',
+            borderRadius: '12px',
+            background: 'rgba(2, 6, 23, 0.88)',
+            color: '#fff',
+            textAlign: 'center',
+            fontSize: 'clamp(15px, 1.8vw, 22px)',
+            fontWeight: 600,
+            lineHeight: 1.45,
+            textShadow: '0 1px 2px rgba(0,0,0,.5)',
+            boxShadow: '0 8px 28px rgba(0,0,0,.28)',
+            pointerEvents: 'none',
+            overflowWrap: 'anywhere'
+          }}
+        >
+          <span style={{ display: 'block', color: '#67e8f9', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '3px' }}>LIVE CAPTIONS</span>
+          {liveCaptionText}
         </div>
       )}
 
@@ -5109,6 +5287,21 @@ function ActiveRoomPage({
               </button>
             </div>
           )}
+        </div>
+
+        {/* Live Captions Control */}
+        <div className="zoom-toolbar-btn-group" style={{ position: 'relative' }}>
+          <button
+            type="button"
+            className={`zoom-main-btn ${isLiveCaptionsOn ? 'live-captions-active' : ''}`}
+            onClick={handleToggleLiveCaptions}
+            aria-pressed={isLiveCaptionsOn}
+            title={isLiveCaptionsOn ? 'Turn live captions off' : 'Turn live captions on'}
+            style={isLiveCaptionsOn ? { borderColor: '#06b6d4', color: '#67e8f9', background: 'rgba(8, 145, 178, 0.18)' } : undefined}
+          >
+            <div className="zoom-btn-icon" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-1px' }}>CC</div>
+            <span className="zoom-btn-label">{isLiveCaptionsOn ? 'Captions On' : 'Captions'}</span>
+          </button>
         </div>
 
         {/* 2. Video Control Group (Image 4) */}

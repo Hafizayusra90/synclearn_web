@@ -578,13 +578,63 @@ const syncHandler = (io, socket) => {
     io.to(targetSocketId).emit('force-removed', { reason: 'You have been removed from the session by the host.' });
   });
 
-  // ── Live Lecture Transcription Broadcast ──
-  socket.on('new-transcription', (data) => {
-    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
-    if (targetRoom) {
-      socket.to(targetRoom).emit('receive-transcription', data);
+  // ── Live Lecture Transcription Broadcast ── 
+  // Supports both current and legacy frontend event names.
+
+  const broadcastTranscription = (data = {}) => {
+    try {
+      // Get the classroom ID from the event or connected socket.
+      const rawRoomId = data?.roomId || socket.roomId;
+
+      // Normalize the room ID to match the joined classroom.
+      const targetRoom =
+        getCanonicalRoomId(rawRoomId) ||
+        sanitizeRoomId(rawRoomId);
+
+      // Validate the caption.
+      const entry = data?.entry;
+
+      if (
+        !targetRoom ||
+        !entry ||
+        typeof entry.text !== 'string' ||
+        !entry.text.trim()
+      ) {
+        console.warn('⚠️ Invalid transcription data received.');
+        return;
+      }
+
+      // Prepare caption payload.
+      const payload = {
+        ...data,
+        roomId: targetRoom,
+        entry: {
+          ...entry,
+          text: entry.text.trim()
+        }
+      };
+
+      // Broadcast caption to all other participants in this classroom.
+      socket.to(targetRoom).emit('receive-transcription', payload);
+
+      console.log(
+        `📝 Live caption broadcast successfully in room: ${targetRoom}`
+      );
+
+    } catch (error) {
+      console.error(
+        '❌ Live transcription broadcast error:',
+        error.message
+      );
     }
-  });
+  };
+
+  // Current frontend event.
+  socket.on('send-transcription', broadcastTranscription);
+
+  // Legacy event support.
+  socket.on('new-transcription', broadcastTranscription);
+
 
 
 
