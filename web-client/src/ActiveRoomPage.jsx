@@ -105,6 +105,16 @@ const RemoteVideo = ({ peer, peerInfo, mediaState, isHandRaised = false }) => {
     if (audioTrack && audioRef.current) {
       const isPeerMuted = (mediaState && mediaState.micOn === false);
       audioTrack.enabled = !isPeerMuted;
+      audioTrack.onunmute = () => {
+        if (mediaState?.micOn !== false) {
+          audioTrack.enabled = true;
+          if (audioRef.current) {
+            audioRef.current.muted = false;
+            audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
+            audioRef.current.play().then(() => setAudioBlocked(false)).catch(() => {});
+          }
+        }
+      };
       if (currentAudioTrackIdRef.current !== audioTrack.id || !audioRef.current.srcObject) {
         currentAudioTrackIdRef.current = audioTrack.id;
         const aStream = new MediaStream([audioTrack]);
@@ -238,7 +248,15 @@ const RemoteVideo = ({ peer, peerInfo, mediaState, isHandRaised = false }) => {
   // Reactive watcher for peer microphone state changes: re-trigger audio element play immediately
   useEffect(() => {
     if (isMicOn) {
-      if (audioRef.current && audioRef.current.srcObject) {
+      syncRemoteMedia();
+      if (audioRef.current) {
+        if (audioRef.current.srcObject) {
+          try {
+            audioRef.current.srcObject.getAudioTracks().forEach(t => {
+              t.enabled = true;
+            });
+          } catch (e) {}
+        }
         audioRef.current.muted = false;
         audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
         const p = audioRef.current.play();
@@ -249,8 +267,19 @@ const RemoteVideo = ({ peer, peerInfo, mediaState, isHandRaised = false }) => {
           });
         }
       }
+      try {
+        if (window.__synclearnGlobalAudioCtx && window.__synclearnGlobalAudioCtx.state === 'suspended') {
+          window.__synclearnGlobalAudioCtx.resume().catch(() => {});
+        }
+      } catch (e) {}
       if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
         audioCtxRef.current.resume().catch(() => {});
+      }
+    } else {
+      if (audioRef.current) {
+        audioRef.current.muted = true;
+        audioRef.current.volume = 0;
+        audioRef.current.pause();
       }
     }
   }, [isMicOn, mediaState, peerVolume]);
@@ -3043,10 +3072,19 @@ socket.on('receive-transcription', (data) => {
         existingAudioTrack.enabled = true;
         peersRef.current.forEach(p => {
           try {
+            if (typeof p.peer?.replaceTrack === 'function') {
+              try {
+                const oldTracks = p.peer.streams?.[0]?.getAudioTracks() || [];
+                oldTracks.forEach(ot => {
+                  try { p.peer.replaceTrack(ot, existingAudioTrack, userStreamRef.current); } catch(e) {}
+                });
+              } catch(e) {}
+            }
             const pc = p.peer?._pc;
             if (pc) {
               const sender = findAudioSender(pc);
               if (sender) {
+                if (sender.track) sender.track.enabled = true;
                 sender.replaceTrack(existingAudioTrack).catch(() => {});
               }
             }
@@ -3078,6 +3116,7 @@ socket.on('receive-transcription', (data) => {
         const newAudioTrack = audioStream?.getAudioTracks()[0];
         if (newAudioTrack) {
           newAudioTrack.enabled = true;
+          const oldAudioTracks = userStreamRef.current ? [...userStreamRef.current.getAudioTracks()] : [];
           if (userStreamRef.current) {
             userStreamRef.current.getAudioTracks().forEach(t => {
               try { t.stop(); } catch (e) {}
@@ -3089,11 +3128,18 @@ socket.on('receive-transcription', (data) => {
           // Force replaceTrack on all peer connections so real audio packets flow immediately
           peersRef.current.forEach(p => {
             try {
+              if (typeof p.peer?.replaceTrack === 'function' && oldAudioTracks.length > 0) {
+                oldAudioTracks.forEach(ot => {
+                  try { p.peer.replaceTrack(ot, newAudioTrack, userStreamRef.current); } catch(e) {}
+                });
+              }
               const pc = p.peer?._pc;
               if (pc) {
                 const sender = findAudioSender(pc);
                 if (sender) {
                   sender.replaceTrack(newAudioTrack).catch(() => {});
+                } else if (typeof pc.addTrack === 'function') {
+                  try { pc.addTrack(newAudioTrack, userStreamRef.current); } catch(e) {}
                 }
               }
             } catch (e) {
@@ -4191,6 +4237,7 @@ socket.on('receive-transcription', (data) => {
                 roomId={cleanRoomId(roomId)}
                 isInstructor={isInstructor}
                 user={user}
+                theme={theme}
                 pinnedDoubts={pinnedDoubts}
                 onPinDoubt={handleAddPinnedDoubt}
                 onResolveDoubt={handleResolveDoubt}

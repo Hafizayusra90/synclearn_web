@@ -89,6 +89,7 @@ const syncHandler = (io, socket) => {
     const variants = getRoomVariants(rawRoomId);
     variants.forEach(v => socket.join(v));
     socket.roomId = roomId;
+    socket.userRole = userRole || 'student';
 
     if (roomTopic && typeof roomTopic === 'string' && roomTopic.trim()) {
       const cleanT = roomTopic.trim();
@@ -820,40 +821,67 @@ const syncHandler = (io, socket) => {
 
   // ── Synchronized Video Player & YouTube Collaboration ──
   socket.on('video-state-change', (data) => {
-    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
-    if (targetRoom) {
-      if (roomVideoStates.has(targetRoom)) {
-        const current = roomVideoStates.get(targetRoom);
-        current.isPlaying = data.type === 'play';
-        if (typeof data.timestamp === 'number') current.currentTime = data.timestamp;
-      }
-      socket.to(targetRoom).emit('video-state-change', data);
-      const altRoom = targetRoom.replace(/-/g, '');
-      if (altRoom && altRoom !== targetRoom) {
-        socket.to(altRoom).emit('video-state-change', data);
-      }
+    const rawTarget = data?.roomId || socket.roomId;
+    const targetRoom = getCanonicalRoomId(rawTarget) || sanitizeRoomId(rawTarget);
+    if (!targetRoom) return;
+
+    const roomMap = roomUsers.get(targetRoom);
+    const userInfo = roomMap ? roomMap.get(socket.id) : null;
+    const isTeacher = socket.userRole === 'instructor' || 
+                      userInfo?.userRole === 'instructor' || 
+                      data?.senderRole === 'instructor' ||
+                      data?.isInstructor === true;
+
+    const current = roomVideoStates.get(targetRoom);
+    const isDirectVideo = current?.mediaType === 'direct';
+
+    // Allow instructor, or if local direct video is active, allow playback sync
+    if (!isTeacher && !isDirectVideo) {
+      return; // Ignore student playback broadcast attempts for YouTube
     }
+
+    if (current) {
+      current.isPlaying = data.type === 'play';
+      if (typeof data.timestamp === 'number') current.currentTime = data.timestamp;
+    }
+
+    const variants = getRoomVariants(rawTarget);
+    variants.forEach(v => socket.to(v).emit('video-state-change', data));
   });
 
   socket.on('video-source-change', (data) => {
-    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
-    if (targetRoom) {
-      roomVideoStates.set(targetRoom, {
-        mediaType: data.mediaType,
-        ytVideoId: data.ytVideoId || '',
-        videoSrc: data.videoSrc || '',
-        videoTitle: data.videoTitle || 'Lecture Video',
-        currentTime: 0,
-        isPlaying: false,
-        instructorName: data.instructorName || 'Instructor'
-      });
-      // Broadcast to all other peers in the room
-      socket.to(targetRoom).emit('video-source-change', data);
-      const altRoom = targetRoom.replace(/-/g, '');
-      if (altRoom && altRoom !== targetRoom) {
-        socket.to(altRoom).emit('video-source-change', data);
-      }
+    const rawTarget = data?.roomId || socket.roomId;
+    const targetRoom = getCanonicalRoomId(rawTarget) || sanitizeRoomId(rawTarget);
+    if (!targetRoom) return;
+
+    const roomMap = roomUsers.get(targetRoom);
+    const userInfo = roomMap ? roomMap.get(socket.id) : null;
+    const isTeacher = socket.userRole === 'instructor' || 
+                      userInfo?.userRole === 'instructor' || 
+                      data?.senderRole === 'instructor' ||
+                      data?.isInstructor === true;
+
+    // YouTube link changes: Strictly teacher/instructor only!
+    if (data?.mediaType === 'youtube' && !isTeacher) {
+      console.warn(`[SyncLearn] Unauthorized YouTube video-source-change attempt from non-instructor socket ${socket.id}`);
+      return;
     }
+
+    // Direct local video upload (mediaType === 'direct'): Permitted for both students and instructor!
+    const stateObj = {
+      mediaType: data.mediaType,
+      ytVideoId: data.ytVideoId || '',
+      videoSrc: data.videoSrc || '',
+      videoTitle: data.videoTitle || (data.mediaType === 'youtube' ? 'YouTube Video' : 'Lecture Video'),
+      currentTime: 0,
+      isPlaying: false,
+      uploadedBy: userInfo?.userName || data?.uploadedBy || (isTeacher ? 'Instructor' : 'Student'),
+      instructorName: data.instructorName || (isTeacher ? 'Instructor' : (userInfo?.userName || 'Student'))
+    };
+
+    const variants = getRoomVariants(rawTarget);
+    variants.forEach(v => roomVideoStates.set(v, stateObj));
+    variants.forEach(v => socket.to(v).emit('video-source-change', data));
   });
 
   // ── Real-time Workspace View Sync (Instructor switches to Video, Whiteboard, or Cameras) ──

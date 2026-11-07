@@ -667,71 +667,405 @@
   }
 }
 
+/* ── Teacher YouTube Change, Local Video Sync & Waiting Box (Default Dark Theme) ── */
+
+.btn-change-yt-action {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.35) 100%);
+  border: 1.5px solid rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.2);
+}
+.btn-change-yt-action:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.45) 0%, rgba(220, 38, 38, 0.55) 100%);
+  color: #ffffff;
+  border-color: #ef4444;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.35);
+  transform: translateY(-1px);
+}
+
+.student-synced-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 99px;
+  letter-spacing: 0.02em;
+}
+
+/* Student Waiting Box (Dark Default) */
+.video-student-waiting-box {
+  min-height: 380px;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.8), rgba(9, 13, 22, 0.98));
+  border: 2px dashed rgba(56, 189, 248, 0.35);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.waiting-box-icon {
+  font-size: 3.4rem;
+  animation: pulse 2s infinite;
+}
+
+.waiting-box-title {
+  color: #38bdf8;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.waiting-box-desc {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  max-width: 440px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.waiting-box-pill {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 99px;
+  color: #38bdf8;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* Local Video Upload Progress Banner */
+.video-sync-upload-banner {
+  background: linear-gradient(90deg, rgba(30, 58, 138, 0.95), rgba(15, 23, 42, 0.98));
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeIn 0.2s ease-out;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.video-sync-upload-banner strong {
+  color: #60a5fa;
+  font-size: 0.88rem;
+  display: block;
+}
+.video-sync-upload-banner span {
+  color: #cbd5e1;
+  font-size: 0.78rem;
+}
+.video-upload-bar-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.video-upload-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  border-radius: 99px;
+  transition: width 0.2s ease;
+}
+
+.video-sync-success-banner {
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  color: #4ade80;
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.video-change-modal-card {
+  max-width: 520px !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 25px rgba(239, 68, 68, 0.2) !important;
+}
+
+.youtube-player-mount-point {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
 /* ══════════════════════════════════════════════════════════════════════
-   Light Mode Overrides for Video Player & Dropzone
+   Light Mode Overrides (Placed at bottom for absolute highest specificity)
    ══════════════════════════════════════════════════════════════════════ */
-[data-theme="light"] .video-dropzone-box {
+
+/* Waiting Screen & Container (Pure White in Light Theme) */
+[data-theme="light"] .video-frame-container,
+.light-theme .video-frame-container,
+.video-frame-container.light-mode {
   background: #ffffff !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border: 1.5px solid rgba(8, 145, 178, 0.35) !important;
+  box-shadow: 0 8px 30px rgba(8, 145, 178, 0.1) !important;
+}
+
+[data-theme="light"] .video-student-waiting-box,
+.light-theme .video-student-waiting-box,
+.video-student-waiting-box.light-mode {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
   border: 2px dashed rgba(8, 145, 178, 0.45) !important;
   box-shadow: 0 4px 25px rgba(8, 145, 178, 0.08) !important;
 }
 
-[data-theme="light"] .dropzone-inner h3 {
+[data-theme="light"] .video-dropzone-box,
+.light-theme .video-dropzone-box,
+.video-dropzone-box.light-mode {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border: 2px dashed rgba(8, 145, 178, 0.45) !important;
+  box-shadow: 0 4px 25px rgba(8, 145, 178, 0.08) !important;
+}
+
+[data-theme="light"] .dropzone-inner h3,
+.light-theme .dropzone-inner h3,
+[data-theme="light"] .waiting-box-title,
+.light-theme .waiting-box-title,
+.waiting-box-title.light-mode {
   color: #042f2e !important;
 }
 
-[data-theme="light"] .dropzone-inner p {
-  color: #475569 !important;
+[data-theme="light"] .dropzone-inner p,
+.light-theme .dropzone-inner p,
+[data-theme="light"] .waiting-box-desc,
+.light-theme .waiting-box-desc,
+.waiting-box-desc.light-mode {
+  color: #334155 !important;
 }
 
-[data-theme="light"] .btn-browse-video {
+[data-theme="light"] .waiting-box-pill,
+.light-theme .waiting-box-pill,
+.waiting-box-pill.light-mode {
+  background: #ecfdf5 !important;
+  border: 1.5px solid #10b981 !important;
+  color: #065f46 !important;
+}
+
+[data-theme="light"] .btn-browse-video,
+.light-theme .btn-browse-video {
   background: #0284c7 !important;
   color: #ffffff !important;
   box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3) !important;
 }
 
-[data-theme="light"] .btn-browse-video:hover {
+[data-theme="light"] .btn-browse-video:hover,
+.light-theme .btn-browse-video:hover {
   background: #0369a1 !important;
 }
 
-[data-theme="light"] .dropzone-divider {
+[data-theme="light"] .dropzone-divider,
+.light-theme .dropzone-divider {
   color: #0e7490 !important;
 }
 
 [data-theme="light"] .dropzone-divider::before,
-[data-theme="light"] .dropzone-divider::after {
+[data-theme="light"] .dropzone-divider::after,
+.light-theme .dropzone-divider::before,
+.light-theme .dropzone-divider::after {
   border-bottom: 1px solid rgba(8, 145, 178, 0.25) !important;
 }
 
-[data-theme="light"] .dropzone-yt-input {
+[data-theme="light"] .dropzone-yt-input,
+.light-theme .dropzone-yt-input {
   background: #ffffff !important;
   border: 1.5px solid rgba(8, 145, 178, 0.35) !important;
   color: #0f172a !important;
 }
 
-[data-theme="light"] .dropzone-yt-input::placeholder {
+[data-theme="light"] .dropzone-yt-input::placeholder,
+.light-theme .dropzone-yt-input::placeholder {
   color: #94a3b8 !important;
 }
 
-[data-theme="light"] .video-player-container {
+[data-theme="light"] .video-player-container,
+.light-theme .video-player-container {
   background: transparent !important;
 }
 
-[data-theme="light"] .video-header-bar {
+[data-theme="light"] .video-header-bar,
+.light-theme .video-header-bar {
   background: rgba(240, 253, 254, 0.95) !important;
   border-color: rgba(8, 145, 178, 0.25) !important;
 }
 
-[data-theme="light"] .video-topic-title {
+[data-theme="light"] .video-topic-title,
+.light-theme .video-topic-title {
   color: #042f2e !important;
 }
 
-[data-theme="light"] .youtube-sync-controller {
+[data-theme="light"] .youtube-sync-controller,
+.light-theme .youtube-sync-controller {
   background: rgba(240, 253, 254, 0.95) !important;
   border-color: rgba(8, 145, 178, 0.25) !important;
 }
 
-[data-theme="light"] .sync-status-badge {
+[data-theme="light"] .youtube-sync-title,
+.light-theme .youtube-sync-title {
+  color: #042f2e !important;
+}
+[data-theme="light"] .youtube-sync-title span,
+.light-theme .youtube-sync-title span {
+  color: #042f2e !important;
+}
+
+[data-theme="light"] .btn-yt-sync,
+.light-theme .btn-yt-sync {
+  background: #ffffff !important;
+  border: 1.5px solid #94a3b8 !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .btn-yt-sync:hover,
+.light-theme .btn-yt-sync:hover {
+  background: #0284c7 !important;
+  border-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .sync-status-badge,
+.light-theme .sync-status-badge {
   color: #0891b2 !important;
 }
 
+/* ── Light Mode Dark / High-Contrast Action Buttons (Image 3) ── */
+[data-theme="light"] .btn-change-yt-action,
+.light-theme .btn-change-yt-action {
+  background: #fee2e2 !important;
+  border: 1.5px solid #dc2626 !important;
+  color: #991b1b !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15) !important;
+}
+[data-theme="light"] .btn-change-yt-action:hover,
+.light-theme .btn-change-yt-action:hover {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3) !important;
+}
+
+[data-theme="light"] .btn-video-action,
+.light-theme .btn-video-action {
+  background: #e0e7ff !important;
+  border: 1.5px solid #4f46e5 !important;
+  color: #312e81 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.15) !important;
+}
+[data-theme="light"] .btn-video-action:hover,
+.light-theme .btn-video-action:hover {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+  border-color: #3730a3 !important;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3) !important;
+}
+
+[data-theme="light"] .btn-pin-doubt-action,
+.light-theme .btn-pin-doubt-action {
+  background: #fef3c7 !important;
+  border: 1.5px solid #d97706 !important;
+  color: #92400e !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.15) !important;
+}
+[data-theme="light"] .btn-pin-doubt-action:hover,
+.light-theme .btn-pin-doubt-action:hover {
+  background: #f59e0b !important;
+  color: #ffffff !important;
+  border-color: #d97706 !important;
+}
+
+[data-theme="light"] .student-synced-pill,
+.light-theme .student-synced-pill {
+  background: #ecfdf5 !important;
+  border: 1.5px solid #10b981 !important;
+  color: #065f46 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .video-title-group h3,
+.light-theme .video-title-group h3,
+[data-theme="light"] .video-title-group h3 span,
+.light-theme .video-title-group h3 span {
+  color: #042f2e !important;
+}
+
+[data-theme="light"] .video-source-pill.youtube,
+.light-theme .video-source-pill.youtube {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1.5px solid #dc2626 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .video-source-pill.direct,
+.light-theme .video-source-pill.direct {
+  background: #e0e7ff !important;
+  color: #312e81 !important;
+  border: 1.5px solid #4f46e5 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .video-change-modal-card,
+.light-theme .video-change-modal-card {
+  background: #ffffff !important;
+  border-color: #dc2626 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25), 0 0 25px rgba(220, 38, 38, 0.15) !important;
+}
+
+[data-theme="light"] .video-change-modal-card .video-pin-sub,
+.light-theme .video-change-modal-card .video-pin-sub {
+  color: #475569 !important;
+}
+
+[data-theme="light"] .change-yt-input-group label,
+.light-theme .change-yt-input-group label {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .btn-cancel-pin,
+.light-theme .btn-cancel-pin {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+[data-theme="light"] .btn-cancel-pin:hover,
+.light-theme .btn-cancel-pin:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
